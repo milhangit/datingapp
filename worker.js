@@ -1,5 +1,3 @@
-import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
-
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -211,27 +209,19 @@ async function getMessages(userId, partnerId, DB) {
 
 // Serve static assets
 async function serveAsset(request, env, ctx) {
+  const url = new URL(request.url);
+  const pathname = url.pathname;
+
   try {
-    const response = await getAssetFromKV(
-      { request, waitUntil: ctx.waitUntil.bind(ctx) },
-      {
-        ASSET_NAMESPACE: env.__STATIC_CONTENT,
-        ASSET_MANIFEST: JSON.parse(env.__STATIC_CONTENT_MANIFEST),
-        mapRequestToAsset: req => {
-          const parsedUrl = new URL(req.url);
-          const pathname = parsedUrl.pathname;
+    // For SPA routing - serve index.html for non-asset routes
+    let assetRequest = request;
 
-          // Serve actual files
-          if (pathname.match(/\.(js|css|json|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
-            return req;
-          }
+    // If it's not a file with extension, serve index.html
+    if (!pathname.match(/\.(js|css|json|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|txt|map|LICENSE)$/)) {
+      assetRequest = new Request(`${url.origin}/index.html`, request);
+    }
 
-          // For all other routes, serve index.html (SPA routing)
-          parsedUrl.pathname = '/index.html';
-          return new Request(parsedUrl.toString(), req);
-        }
-      }
-    );
+    const response = await env.ASSETS.fetch(assetRequest);
 
     // Add security headers
     const headers = new Headers(response.headers);
@@ -247,19 +237,14 @@ async function serveAsset(request, env, ctx) {
     });
 
   } catch (error) {
+    // If asset not found, try serving index.html for SPA
     try {
-      const notFoundResponse = await getAssetFromKV(
-        { request, waitUntil: ctx.waitUntil.bind(ctx) },
-        {
-          ASSET_NAMESPACE: env.__STATIC_CONTENT,
-          ASSET_MANIFEST: JSON.parse(env.__STATIC_CONTENT_MANIFEST),
-          mapRequestToAsset: req => new Request(`${new URL(req.url).origin}/index.html`, req),
-        }
-      );
+      const indexRequest = new Request(`${url.origin}/index.html`, request);
+      const indexResponse = await env.ASSETS.fetch(indexRequest);
 
-      return new Response(notFoundResponse.body, {
+      return new Response(indexResponse.body, {
         status: 200,
-        headers: notFoundResponse.headers,
+        headers: indexResponse.headers,
       });
     } catch (e) {
       return new Response('Not Found', { status: 404 });
