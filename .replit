@@ -1,0 +1,13 @@
+language = "nix"
+run = "npm start --prefix client"
+
+[nix]
+packages = ["nodejs-18_x", "nodePackages.react-scripts"]
+
+[packager]
+language = "nodejs"
+
+[packager.features]
+packageSearch = true
+guessImports = true
+enabledForHosting = true
