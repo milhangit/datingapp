@@ -11,6 +11,23 @@
     transition: transform 0.1s ease;
 }
 
+.card__match {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+}
+
+.match__percentage {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 25px;
+    font-weight: 700;
+    font-size: 16px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    display: inline-block;
+}
+
 .tinderCards__cardContainer {
     display: flex;
     justify-content: center;

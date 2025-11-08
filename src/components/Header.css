@@ -13,3 +13,8 @@
 .header__icon {
     padding: 20px;
 }
+
+.header__actions {
+    display: flex;
+    align-items: center;
+}
