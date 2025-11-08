@@ -1,23 +1,30 @@
-import logo from './logo.svg';
+import React, { useRef } from 'react';
 import './App.css';
+import Header from './components/Header';
+import TinderCards from './components/TinderCards';
+import SwipeButtons from './components/SwipeButtons';
+import Profile from './pages/Profile';
+import Login from './pages/Login';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 function App() {
+  const tinderCardsRef = useRef(null);
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <Router>
+        <Header />
+        <Routes>
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={
+            <>
+              <TinderCards ref={tinderCardsRef} />
+              <SwipeButtons tinderCardsRef={tinderCardsRef} />
+            </>
+          } />
+        </Routes>
+      </Router>
     </div>
   );
 }
