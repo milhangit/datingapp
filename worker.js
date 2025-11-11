@@ -56,7 +56,7 @@ async function handleAPI(request, env) {
     }
     // Admin routes
     else if (path === '/api/admin/login' && method === 'POST') {
-      response = await adminLogin(request);
+      response = await adminLogin(request, env.DB);
     } else if (path === '/api/admin/users' && method === 'GET') {
       response = await adminGetAllUsers(env.DB);
     } else if (path.startsWith('/api/admin/users/') && path.endsWith('/block') && method === 'POST') {
@@ -276,23 +276,49 @@ async function getMessages(userId, partnerId, DB) {
 
 // ========== ADMIN FUNCTIONS ==========
 
-// Admin login (simple authentication - in production use JWT)
-async function adminLogin(request) {
+// Hash password using Web Crypto API
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Admin login with database authentication
+async function adminLogin(request, DB) {
   const { username, password } = await request.json();
 
-  // Simple admin check (in production, store hashed passwords in DB)
-  if (username === 'admin' && password === 'admin123') {
-    return {
-      success: true,
-      admin: {
-        id: 1,
-        username: 'admin',
-        role: 'administrator'
-      }
-    };
+  // Get admin from database
+  const admin = await DB.prepare('SELECT * FROM admins WHERE username = ?')
+    .bind(username)
+    .first();
+
+  if (!admin) {
+    throw new Error('Invalid admin credentials');
   }
 
-  throw new Error('Invalid admin credentials');
+  // Hash the provided password and compare
+  const passwordHash = await hashPassword(password);
+
+  if (passwordHash !== admin.passwordHash) {
+    throw new Error('Invalid admin credentials');
+  }
+
+  // Update last login
+  await DB.prepare('UPDATE admins SET lastLogin = CURRENT_TIMESTAMP WHERE id = ?')
+    .bind(admin.id)
+    .run();
+
+  return {
+    success: true,
+    admin: {
+      id: admin.id,
+      username: admin.username,
+      email: admin.email,
+      role: admin.role
+    }
+  };
 }
 
 // Get all users for admin

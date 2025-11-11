@@ -65,6 +65,17 @@ CREATE TABLE IF NOT EXISTS messages (
     FOREIGN KEY (recipientId) REFERENCES users(id)
 );
 
+-- Admins table for CMS authentication
+CREATE TABLE IF NOT EXISTS admins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    passwordHash TEXT NOT NULL,
+    email TEXT,
+    role TEXT DEFAULT 'admin',
+    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+    lastLogin DATETIME
+);
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_swipes_userId ON swipes(userId);
 CREATE INDEX IF NOT EXISTS idx_swipes_targetUserId ON swipes(targetUserId);
