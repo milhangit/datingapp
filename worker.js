@@ -110,6 +110,26 @@ async function handleAPI(request, env) {
 async function registerUser(request, DB) {
   const data = await request.json();
 
+  // Check if phone already exists
+  if (data.phone) {
+    const existingPhone = await DB.prepare('SELECT id FROM users WHERE phone = ?')
+      .bind(data.phone)
+      .first();
+    if (existingPhone) {
+      throw new Error('Phone number already registered');
+    }
+  }
+
+  // Check if username already exists
+  if (data.username) {
+    const existingUsername = await DB.prepare('SELECT id FROM users WHERE username = ?')
+      .bind(data.username)
+      .first();
+    if (existingUsername) {
+      throw new Error('Username already taken');
+    }
+  }
+
   // Check if email already exists
   const existing = await DB.prepare('SELECT id FROM users WHERE email = ?')
     .bind(data.email)
@@ -120,16 +140,16 @@ async function registerUser(request, DB) {
   }
 
   const result = await DB.prepare(`
-    INSERT INTO users (name, email, password, gender, age, dateOfBirth, religion, caste,
+    INSERT INTO users (username, phone, name, email, password, gender, age, dateOfBirth, religion, caste,
       height, bodyType, complexion, education, occupation, income, city, state, country,
       motherTongue, diet, smoking, drinking, familyType, familyValues, interests, bio, photo)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(
-    data.name, data.email, data.password, data.gender, data.age, data.dateOfBirth,
+    data.username, data.phone, data.name, data.email, data.password, data.gender, data.age, data.dateOfBirth,
     data.religion, data.caste, data.height, data.bodyType, data.complexion,
     data.education, data.occupation, data.income, data.city, data.state, data.country,
     data.motherTongue, data.diet, data.smoking, data.drinking, data.familyType,
-    data.familyValues, JSON.stringify(data.interests), data.bio, data.photo
+    data.familyValues, JSON.stringify(data.interests || []), data.bio, data.photo
   ).run();
 
   const user = await DB.prepare('SELECT * FROM users WHERE id = ?')

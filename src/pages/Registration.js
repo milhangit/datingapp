@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
+import api from '../services/api';
 import './Registration.css';
 
 function Registration() {
@@ -9,21 +10,26 @@ function Registration() {
     const [step, setStep] = useState(1);
     const [formData, setFormData] = useState({
         id: Date.now(),
-        name: '',
-        email: '',
+        username: '',
+        phone: '',
         password: '',
+        name: '',
         gender: '',
-        age: '',
-        dateOfBirth: '',
+        age: 25,
         religion: '',
+        city: '',
+        occupation: '',
+        education: '',
+        photo: 'https://via.placeholder.com/600',
+        bio: '',
+        interests: [],
+        email: '', // Auto-generated from phone
+        dateOfBirth: '',
         caste: '',
         height: '',
         bodyType: '',
         complexion: '',
-        education: '',
-        occupation: '',
         income: '',
-        city: '',
         state: '',
         country: 'Sri Lanka',
         motherTongue: '',
@@ -31,24 +37,20 @@ function Registration() {
         smoking: 'No',
         drinking: 'No',
         familyType: '',
-        familyValues: '',
-        interests: [],
-        bio: '',
-        photo: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=600'
+        familyValues: ''
     });
 
-    const handleChange = (e) => {
+    const [error, setError] = useState('');
+
+    const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+        setError('');
     };
 
-    const handleInterestsChange = (interest) => {
-        setFormData(prev => {
-            const interests = prev.interests.includes(interest)
-                ? prev.interests.filter(i => i !== interest)
-                : [...prev.interests, interest];
-            return { ...prev, interests };
-        });
+    const handleButtonSelect = (field, value) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
+        setError('');
     };
 
     const nextStep = () => {
@@ -62,68 +64,98 @@ function Registration() {
     const validateStep = (currentStep) => {
         switch (currentStep) {
             case 1:
-                return formData.name && formData.email && formData.password && formData.gender;
+                if (!formData.phone || !formData.username || !formData.password) {
+                    setError('Please fill in all fields');
+                    return false;
+                }
+                if (formData.phone.length < 10) {
+                    setError('Please enter a valid phone number');
+                    return false;
+                }
+                return true;
             case 2:
-                return formData.age && formData.religion && formData.height;
+                if (!formData.name || !formData.gender || !formData.age) {
+                    setError('Please complete your basic info');
+                    return false;
+                }
+                return true;
             case 3:
-                return formData.education && formData.occupation && formData.city;
-            case 4:
+                if (!formData.religion || !formData.city) {
+                    setError('Please select your religion and city');
+                    return false;
+                }
                 return true;
             default:
                 return true;
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        saveCurrentUser(formData);
-        navigate('/');
+
+        // Auto-generate email from phone if not provided
+        const finalData = {
+            ...formData,
+            email: formData.email || `${formData.phone}@app.com`
+        };
+
+        try {
+            // Register user via API
+            const result = await api.register(finalData);
+            saveCurrentUser(result.user || finalData);
+            navigate('/');
+        } catch (err) {
+            console.error('Registration error:', err);
+            setError(err.message || 'Registration failed. Please try again.');
+        }
     };
 
-    const interestsList = [
-        'Reading', 'Travel', 'Cooking', 'Music', 'Movies', 'Sports',
-        'Photography', 'Dancing', 'Yoga', 'Fitness', 'Art', 'Gaming'
-    ];
+    const cities = ['Colombo', 'Kandy', 'Galle', 'Jaffna', 'Negombo', 'Trincomalee', 'Anuradhapura', 'Kurunegala'];
+    const religions = ['Buddhist', 'Hindu', 'Christian', 'Muslim', 'Other'];
+    const occupations = ['Engineer', 'Doctor', 'Teacher', 'Business', 'IT Professional', 'Accountant', 'Nurse', 'Lawyer', 'Student', 'Other'];
+    const educationLevels = ['High School', 'Diploma', 'Bachelor\'s', 'Master\'s', 'PhD'];
 
     return (
         <div className="registration">
             <div className="registration__container">
                 <div className="registration__header">
-                    <h1>Create Your Profile</h1>
+                    <h1>Quick Sign Up</h1>
                     <div className="registration__progress">
                         <div
                             className="registration__progress-bar"
-                            style={{ width: `${(step / 5) * 100}%` }}
+                            style={{ width: `${(step / 4) * 100}%` }}
                         />
                     </div>
-                    <p className="registration__step">Step {step} of 5</p>
+                    <p className="registration__step">Step {step} of 4</p>
                 </div>
+
+                {error && <div className="registration__error">{error}</div>}
 
                 <form onSubmit={handleSubmit}>
                     {step === 1 && (
                         <div className="registration__step-content">
-                            <h2>Basic Information</h2>
+                            <h2>Login Details</h2>
 
                             <div className="form__group">
-                                <label>Full Name *</label>
+                                <label>Phone Number *</label>
                                 <input
-                                    type="text"
-                                    name="name"
-                                    value={formData.name}
-                                    onChange={handleChange}
-                                    placeholder="Enter your full name"
+                                    type="tel"
+                                    name="phone"
+                                    value={formData.phone}
+                                    onChange={handleInputChange}
+                                    placeholder="07XXXXXXXX"
                                     required
                                 />
                             </div>
 
                             <div className="form__group">
-                                <label>Email *</label>
+                                <label>Username *</label>
                                 <input
-                                    type="email"
-                                    name="email"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    placeholder="your.email@example.com"
+                                    type="text"
+                                    name="username"
+                                    value={formData.username}
+                                    onChange={handleInputChange}
+                                    placeholder="Choose a username"
                                     required
                                 />
                             </div>
@@ -134,28 +166,9 @@ function Registration() {
                                     type="password"
                                     name="password"
                                     value={formData.password}
-                                    onChange={handleChange}
+                                    onChange={handleInputChange}
                                     placeholder="Create a password"
                                     required
-                                />
-                            </div>
-
-                            <div className="form__group">
-                                <label>Gender *</label>
-                                <select name="gender" value={formData.gender} onChange={handleChange} required>
-                                    <option value="">Select Gender</option>
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                </select>
-                            </div>
-
-                            <div className="form__group">
-                                <label>Date of Birth</label>
-                                <input
-                                    type="date"
-                                    name="dateOfBirth"
-                                    value={formData.dateOfBirth}
-                                    onChange={handleChange}
                                 />
                             </div>
                         </div>
@@ -163,252 +176,153 @@ function Registration() {
 
                     {step === 2 && (
                         <div className="registration__step-content">
-                            <h2>Personal Details</h2>
+                            <h2>Basic Info</h2>
 
                             <div className="form__group">
-                                <label>Age *</label>
+                                <label>Full Name *</label>
                                 <input
-                                    type="number"
-                                    name="age"
-                                    value={formData.age}
-                                    onChange={handleChange}
-                                    placeholder="Your age"
-                                    min="18"
-                                    max="100"
+                                    type="text"
+                                    name="name"
+                                    value={formData.name}
+                                    onChange={handleInputChange}
+                                    placeholder="Your full name"
                                     required
                                 />
                             </div>
 
                             <div className="form__group">
-                                <label>Religion *</label>
-                                <select name="religion" value={formData.religion} onChange={handleChange} required>
-                                    <option value="">Select Religion</option>
-                                    <option value="Buddhist">Buddhist</option>
-                                    <option value="Hindu">Hindu</option>
-                                    <option value="Christian">Christian</option>
-                                    <option value="Muslim">Muslim</option>
-                                    <option value="Other">Other</option>
-                                </select>
+                                <label>Gender *</label>
+                                <div className="button__grid">
+                                    <button
+                                        type="button"
+                                        className={`selection__button ${formData.gender === 'Male' ? 'selected' : ''}`}
+                                        onClick={() => handleButtonSelect('gender', 'Male')}
+                                    >
+                                        Male
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`selection__button ${formData.gender === 'Female' ? 'selected' : ''}`}
+                                        onClick={() => handleButtonSelect('gender', 'Female')}
+                                    >
+                                        Female
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="form__group">
-                                <label>Caste</label>
+                                <label>Age: {formData.age} years *</label>
                                 <input
-                                    type="text"
-                                    name="caste"
-                                    value={formData.caste}
-                                    onChange={handleChange}
-                                    placeholder="Your caste (optional)"
+                                    type="range"
+                                    name="age"
+                                    min="18"
+                                    max="60"
+                                    value={formData.age}
+                                    onChange={handleInputChange}
+                                    className="age__slider"
                                 />
+                                <div className="age__range">
+                                    <span>18</span>
+                                    <span>60</span>
+                                </div>
                             </div>
 
                             <div className="form__group">
-                                <label>Height *</label>
-                                <select name="height" value={formData.height} onChange={handleChange} required>
-                                    <option value="">Select Height</option>
-                                    <option value="Below 5'0">Below 5'0"</option>
-                                    <option value="5'0 - 5'3">5'0" - 5'3"</option>
-                                    <option value="5'4 - 5'7">5'4" - 5'7"</option>
-                                    <option value="5'8 - 5'11">5'8" - 5'11"</option>
-                                    <option value="6'0 - 6'3">6'0" - 6'3"</option>
-                                    <option value="Above 6'3">Above 6'3"</option>
-                                </select>
-                            </div>
-
-                            <div className="form__group">
-                                <label>Body Type</label>
-                                <select name="bodyType" value={formData.bodyType} onChange={handleChange}>
-                                    <option value="">Select Body Type</option>
-                                    <option value="Slim">Slim</option>
-                                    <option value="Average">Average</option>
-                                    <option value="Athletic">Athletic</option>
-                                    <option value="Heavy">Heavy</option>
-                                </select>
-                            </div>
-
-                            <div className="form__group">
-                                <label>Complexion</label>
-                                <select name="complexion" value={formData.complexion} onChange={handleChange}>
-                                    <option value="">Select Complexion</option>
-                                    <option value="Fair">Fair</option>
-                                    <option value="Wheatish">Wheatish</option>
-                                    <option value="Dark">Dark</option>
-                                </select>
+                                <label>Profile Photo URL (optional)</label>
+                                <input
+                                    type="url"
+                                    name="photo"
+                                    value={formData.photo}
+                                    onChange={handleInputChange}
+                                    placeholder="https://example.com/photo.jpg"
+                                />
+                                <small>Leave blank for default avatar</small>
                             </div>
                         </div>
                     )}
 
                     {step === 3 && (
                         <div className="registration__step-content">
-                            <h2>Professional Information</h2>
+                            <h2>About You</h2>
 
                             <div className="form__group">
-                                <label>Education *</label>
-                                <select name="education" value={formData.education} onChange={handleChange} required>
-                                    <option value="">Select Education</option>
-                                    <option value="High School">High School</option>
-                                    <option value="Diploma">Diploma</option>
-                                    <option value="Bachelor's">Bachelor's Degree</option>
-                                    <option value="Master's">Master's Degree</option>
-                                    <option value="PhD">PhD</option>
-                                </select>
-                            </div>
-
-                            <div className="form__group">
-                                <label>Occupation *</label>
-                                <select name="occupation" value={formData.occupation} onChange={handleChange} required>
-                                    <option value="">Select Occupation</option>
-                                    <option value="Software Engineer">Software Engineer</option>
-                                    <option value="Doctor">Doctor</option>
-                                    <option value="Teacher">Teacher</option>
-                                    <option value="Business">Business Owner</option>
-                                    <option value="Accountant">Accountant</option>
-                                    <option value="Engineer">Engineer</option>
-                                    <option value="Nurse">Nurse</option>
-                                    <option value="Lawyer">Lawyer</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                            </div>
-
-                            <div className="form__group">
-                                <label>Annual Income</label>
-                                <select name="income" value={formData.income} onChange={handleChange}>
-                                    <option value="">Select Income Range</option>
-                                    <option value="Below 5 Lakhs">Below 5 Lakhs</option>
-                                    <option value="5-10 Lakhs">5-10 Lakhs</option>
-                                    <option value="10-20 Lakhs">10-20 Lakhs</option>
-                                    <option value="20-50 Lakhs">20-50 Lakhs</option>
-                                    <option value="Above 50 Lakhs">Above 50 Lakhs</option>
-                                </select>
+                                <label>Religion *</label>
+                                <div className="button__grid">
+                                    {religions.map(religion => (
+                                        <button
+                                            key={religion}
+                                            type="button"
+                                            className={`selection__button ${formData.religion === religion ? 'selected' : ''}`}
+                                            onClick={() => handleButtonSelect('religion', religion)}
+                                        >
+                                            {religion}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
                             <div className="form__group">
                                 <label>City *</label>
-                                <input
-                                    type="text"
-                                    name="city"
-                                    value={formData.city}
-                                    onChange={handleChange}
-                                    placeholder="Your city"
-                                    required
-                                />
-                            </div>
-
-                            <div className="form__group">
-                                <label>State/Province</label>
-                                <input
-                                    type="text"
-                                    name="state"
-                                    value={formData.state}
-                                    onChange={handleChange}
-                                    placeholder="Your state"
-                                />
-                            </div>
-
-                            <div className="form__group">
-                                <label>Mother Tongue</label>
-                                <select name="motherTongue" value={formData.motherTongue} onChange={handleChange}>
-                                    <option value="">Select Language</option>
-                                    <option value="Sinhala">Sinhala</option>
-                                    <option value="Tamil">Tamil</option>
-                                    <option value="English">English</option>
-                                </select>
+                                <div className="button__grid">
+                                    {cities.map(city => (
+                                        <button
+                                            key={city}
+                                            type="button"
+                                            className={`selection__button ${formData.city === city ? 'selected' : ''}`}
+                                            onClick={() => handleButtonSelect('city', city)}
+                                        >
+                                            {city}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     )}
 
                     {step === 4 && (
                         <div className="registration__step-content">
-                            <h2>Lifestyle & Family</h2>
+                            <h2>Work & Education</h2>
 
                             <div className="form__group">
-                                <label>Diet Preference</label>
-                                <select name="diet" value={formData.diet} onChange={handleChange}>
-                                    <option value="">Select Diet</option>
-                                    <option value="Vegetarian">Vegetarian</option>
-                                    <option value="Non-Vegetarian">Non-Vegetarian</option>
-                                    <option value="Vegan">Vegan</option>
-                                    <option value="Eggetarian">Eggetarian</option>
-                                </select>
-                            </div>
-
-                            <div className="form__group">
-                                <label>Smoking Habits</label>
-                                <select name="smoking" value={formData.smoking} onChange={handleChange}>
-                                    <option value="No">No</option>
-                                    <option value="Occasionally">Occasionally</option>
-                                    <option value="Yes">Yes</option>
-                                </select>
-                            </div>
-
-                            <div className="form__group">
-                                <label>Drinking Habits</label>
-                                <select name="drinking" value={formData.drinking} onChange={handleChange}>
-                                    <option value="No">No</option>
-                                    <option value="Socially">Socially</option>
-                                    <option value="Yes">Yes</option>
-                                </select>
-                            </div>
-
-                            <div className="form__group">
-                                <label>Family Type</label>
-                                <select name="familyType" value={formData.familyType} onChange={handleChange}>
-                                    <option value="">Select Family Type</option>
-                                    <option value="Nuclear">Nuclear Family</option>
-                                    <option value="Joint">Joint Family</option>
-                                </select>
-                            </div>
-
-                            <div className="form__group">
-                                <label>Family Values</label>
-                                <select name="familyValues" value={formData.familyValues} onChange={handleChange}>
-                                    <option value="">Select Values</option>
-                                    <option value="Traditional">Traditional</option>
-                                    <option value="Moderate">Moderate</option>
-                                    <option value="Liberal">Liberal</option>
-                                </select>
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 5 && (
-                        <div className="registration__step-content">
-                            <h2>Interests & Bio</h2>
-
-                            <div className="form__group">
-                                <label>Select Your Interests</label>
-                                <div className="interests__grid">
-                                    {interestsList.map(interest => (
-                                        <div
-                                            key={interest}
-                                            className={`interest__chip ${formData.interests.includes(interest) ? 'selected' : ''}`}
-                                            onClick={() => handleInterestsChange(interest)}
+                                <label>Occupation</label>
+                                <div className="button__grid">
+                                    {occupations.map(occupation => (
+                                        <button
+                                            key={occupation}
+                                            type="button"
+                                            className={`selection__button ${formData.occupation === occupation ? 'selected' : ''}`}
+                                            onClick={() => handleButtonSelect('occupation', occupation)}
                                         >
-                                            {interest}
-                                        </div>
+                                            {occupation}
+                                        </button>
                                     ))}
                                 </div>
                             </div>
 
                             <div className="form__group">
-                                <label>About Yourself</label>
-                                <textarea
-                                    name="bio"
-                                    value={formData.bio}
-                                    onChange={handleChange}
-                                    placeholder="Tell us about yourself, your hobbies, what you're looking for..."
-                                    rows="5"
-                                />
+                                <label>Education</label>
+                                <div className="button__grid">
+                                    {educationLevels.map(education => (
+                                        <button
+                                            key={education}
+                                            type="button"
+                                            className={`selection__button ${formData.education === education ? 'selected' : ''}`}
+                                            onClick={() => handleButtonSelect('education', education)}
+                                        >
+                                            {education}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
                             <div className="form__group">
-                                <label>Profile Photo URL</label>
-                                <input
-                                    type="url"
-                                    name="photo"
-                                    value={formData.photo}
-                                    onChange={handleChange}
-                                    placeholder="Enter photo URL"
+                                <label>About Yourself (optional)</label>
+                                <textarea
+                                    name="bio"
+                                    value={formData.bio}
+                                    onChange={handleInputChange}
+                                    placeholder="Tell us a bit about yourself..."
+                                    rows="4"
                                 />
                             </div>
                         </div>
@@ -417,16 +331,16 @@ function Registration() {
                     <div className="registration__buttons">
                         {step > 1 && (
                             <button type="button" onClick={prevStep} className="btn btn__secondary">
-                                Previous
+                                Back
                             </button>
                         )}
-                        {step < 5 ? (
+                        {step < 4 ? (
                             <button type="button" onClick={nextStep} className="btn btn__primary">
-                                Next
+                                Continue
                             </button>
                         ) : (
                             <button type="submit" className="btn btn__primary">
-                                Complete Registration
+                                Create Profile
                             </button>
                         )}
                     </div>

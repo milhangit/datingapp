@@ -1,13 +1,16 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../context/UserContext';
 import './SwipeButtons.css';
-import ReplayIcon from '@mui/icons-material/Replay';
 import CloseIcon from '@mui/icons-material/Close';
-import StarRateIcon from '@mui/icons-material/StarRate';
+import ChatIcon from '@mui/icons-material/Chat';
 import FavoriteIcon from '@mui/icons-material/Favorite';
-import FlashOnIcon from '@mui/icons-material/FlashOn';
 import IconButton from '@mui/material/IconButton';
 
 function SwipeButtons({ tinderCardsRef }) {
+    const navigate = useNavigate();
+    const { currentUser } = useUser();
+
     const handleSwipeLeft = () => {
         if (tinderCardsRef.current) {
             tinderCardsRef.current.swipe('left');
@@ -20,22 +23,33 @@ function SwipeButtons({ tinderCardsRef }) {
         }
     };
 
+    const handleChat = () => {
+        // Get current person from TinderCards
+        if (tinderCardsRef.current) {
+            const currentPerson = tinderCardsRef.current.getCurrentPerson();
+
+            if (currentPerson) {
+                // If not logged in, redirect to registration first
+                if (!currentUser) {
+                    navigate('/register');
+                } else {
+                    // Navigate to chat with this person
+                    navigate(`/chat/${currentPerson.id}`);
+                }
+            }
+        }
+    };
+
     return (
         <div className="swipeButtons">
-            <IconButton className="swipeButtons__repeat" disabled>
-                <ReplayIcon fontSize="large" />
-            </IconButton>
             <IconButton className="swipeButtons__left" onClick={handleSwipeLeft}>
                 <CloseIcon fontSize="large" />
             </IconButton>
-            <IconButton className="swipeButtons__star" disabled>
-                <StarRateIcon fontSize="large" />
+            <IconButton className="swipeButtons__chat" onClick={handleChat}>
+                <ChatIcon fontSize="large" />
             </IconButton>
             <IconButton className="swipeButtons__right" onClick={handleSwipeRight}>
                 <FavoriteIcon fontSize="large" />
-            </IconButton>
-            <IconButton className="swipeButtons__lightning" disabled>
-                <FlashOnIcon fontSize="large" />
             </IconButton>
         </div>
     )

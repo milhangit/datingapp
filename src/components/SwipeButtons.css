@@ -1,37 +1,58 @@
 .swipeButtons {
     position: fixed;
-    bottom: 10vh;
+    bottom: 5vh;
     width: 100%;
     display: flex;
-    justify-content: space-evenly;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+    padding: 0 20px;
+    z-index: 10;
 }
 
 .swipeButtons .MuiIconButton-root {
     background-color: #fff;
     box-shadow: 0px 10px 53px 0px rgba(0,0,0,0.3) !important;
+    transition: all 0.2s ease-in-out;
 }
 
-.swipeButtons__repeat {
-    padding: 3vw !important;
-    color: #f5b748 !important;
+.swipeButtons .MuiIconButton-root:hover {
+    transform: scale(1.1);
+}
+
+.swipeButtons .MuiIconButton-root:active {
+    transform: scale(0.95);
 }
 
 .swipeButtons__left {
-    padding: 3vw !important;
+    padding: 18px !important;
     color: #ec5e6f !important;
 }
 
-.swipeButtons__star {
-    padding: 3vw !important;
-    color: #62b4f9 !important;
+.swipeButtons__chat {
+    padding: 20px !important;
+    color: #667eea !important;
+    transform: scale(1.1);
 }
 
 .swipeButtons__right {
-    padding: 3vw !important;
+    padding: 18px !important;
     color: #76e2b3 !important;
 }
 
-.swipeButtons__lightning {
-    padding: 3vw !important;
-    color: #915dd1 !important;
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .swipeButtons {
+        bottom: 3vh;
+        gap: 20px;
+    }
+
+    .swipeButtons__left,
+    .swipeButtons__right {
+        padding: 15px !important;
+    }
+
+    .swipeButtons__chat {
+        padding: 17px !important;
+    }
 }

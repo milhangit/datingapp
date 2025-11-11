@@ -1,16 +1,19 @@
 import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import api from '../services/api';
 import './TinderCards.css';
 
 const TinderCards = forwardRef((props, ref) => {
     const { currentUser, calculateMatchPercentage, handleSwipeRight } = useUser();
+    const navigate = useNavigate();
 
     const [people, setPeople] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [currentIndex, setCurrentIndex] = useState(-1);
     const [swipedCards, setSwipedCards] = useState([]);
+    const [hasSwipedOnce, setHasSwipedOnce] = useState(false);
 
     // Fetch users from database
     useEffect(() => {
@@ -47,10 +50,19 @@ const TinderCards = forwardRef((props, ref) => {
     const swipe = async (direction) => {
         console.log('Swiping ' + direction + ' on index: ' + currentIndex);
 
+        // Check if this is the first swipe without registration
+        if (!currentUser && !hasSwipedOnce) {
+            setHasSwipedOnce(true);
+            // Redirect to registration after first swipe
+            setTimeout(() => {
+                navigate('/register');
+            }, 700);
+        }
+
         if (currentIndex >= 0 && currentIndex < people.length) {
             const currentPerson = people[currentIndex];
 
-            // Save swipe to database
+            // Save swipe to database (only if logged in)
             if (currentUser) {
                 try {
                     const result = await api.swipe(currentUser.id, currentPerson.id, direction);
@@ -66,7 +78,7 @@ const TinderCards = forwardRef((props, ref) => {
             }
 
             // Track right swipes for potential matches
-            if (direction === 'right') {
+            if (direction === 'right' && currentUser) {
                 handleSwipeRight(currentPerson.id);
             }
 
@@ -78,8 +90,16 @@ const TinderCards = forwardRef((props, ref) => {
         }
     };
 
+    const getCurrentPerson = () => {
+        if (currentIndex >= 0 && currentIndex < people.length) {
+            return people[currentIndex];
+        }
+        return null;
+    };
+
     useImperativeHandle(ref, () => ({
-        swipe
+        swipe,
+        getCurrentPerson
     }));
 
     const handleCardClick = (e, index) => {
