@@ -62,12 +62,17 @@ async function handleAPI(request, env) {
     } else if (path.startsWith('/api/admin/users/') && path.endsWith('/block') && method === 'POST') {
       const userId = path.split('/')[4];
       response = await adminBlockUser(request, userId, env.DB);
+    } else if (path.startsWith('/api/admin/users/') && method === 'PUT') {
+      const userId = path.split('/')[4];
+      response = await adminUpdateUser(request, userId, env.DB);
     } else if (path.startsWith('/api/admin/users/') && method === 'DELETE') {
       const userId = path.split('/')[4];
       response = await adminDeleteUser(userId, env.DB);
     } else if (path.startsWith('/api/admin/users/') && method === 'GET') {
       const userId = path.split('/')[4];
       response = await adminGetUserDetails(userId, env.DB);
+    } else if (path === '/api/admin/users' && method === 'POST') {
+      response = await adminCreateUser(request, env.DB);
     } else if (path === '/api/admin/analytics' && method === 'GET') {
       response = await adminGetAnalytics(env.DB);
     } else if (path === '/api/admin/matches' && method === 'GET') {
@@ -342,6 +347,75 @@ async function adminGetUserDetails(userId, DB) {
   }
 
   return user;
+}
+
+// Create new user (admin)
+async function adminCreateUser(request, DB) {
+  const data = await request.json();
+
+  // Check if email already exists
+  const existing = await DB.prepare('SELECT id FROM users WHERE email = ?')
+    .bind(data.email)
+    .first();
+
+  if (existing) {
+    throw new Error('Email already registered');
+  }
+
+  const result = await DB.prepare(`
+    INSERT INTO users (name, email, password, gender, age, dateOfBirth, religion, caste,
+      height, bodyType, complexion, education, occupation, income, city, state, country,
+      motherTongue, diet, smoking, drinking, familyType, familyValues, interests, bio, photo)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    data.name, data.email, data.password || 'password123', data.gender, data.age, data.dateOfBirth,
+    data.religion, data.caste || '', data.height || '', data.bodyType || '', data.complexion || '',
+    data.education, data.occupation, data.income || '', data.city, data.state || '', data.country || '',
+    data.motherTongue || '', data.diet || '', data.smoking || '', data.drinking || '',
+    data.familyType || '', data.familyValues || '', JSON.stringify(data.interests || []),
+    data.bio || '', data.photo || 'https://via.placeholder.com/600'
+  ).run();
+
+  const user = await DB.prepare('SELECT * FROM users WHERE id = ?')
+    .bind(result.meta.last_row_id)
+    .first();
+
+  if (user.interests) {
+    user.interests = JSON.parse(user.interests);
+  }
+
+  return { success: true, user };
+}
+
+// Update user (admin)
+async function adminUpdateUser(request, userId, DB) {
+  const data = await request.json();
+
+  await DB.prepare(`
+    UPDATE users SET
+      name = ?, email = ?, gender = ?, age = ?, dateOfBirth = ?, religion = ?,
+      caste = ?, height = ?, bodyType = ?, complexion = ?, education = ?,
+      occupation = ?, income = ?, city = ?, state = ?, country = ?,
+      motherTongue = ?, diet = ?, smoking = ?, drinking = ?, familyType = ?,
+      familyValues = ?, interests = ?, bio = ?, photo = ?
+    WHERE id = ?
+  `).bind(
+    data.name, data.email, data.gender, data.age, data.dateOfBirth,
+    data.religion, data.caste || '', data.height || '', data.bodyType || '',
+    data.complexion || '', data.education, data.occupation, data.income || '',
+    data.city, data.state || '', data.country || '', data.motherTongue || '',
+    data.diet || '', data.smoking || '', data.drinking || '', data.familyType || '',
+    data.familyValues || '', JSON.stringify(data.interests || []), data.bio || '',
+    data.photo || 'https://via.placeholder.com/600', userId
+  ).run();
+
+  const user = await DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
+
+  if (user && user.interests) {
+    user.interests = JSON.parse(user.interests);
+  }
+
+  return { success: true, user };
 }
 
 // Block/Unblock user
