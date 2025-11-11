@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
     interests TEXT, -- JSON array
     bio TEXT,
     photo TEXT,
+    blocked INTEGER DEFAULT 0,
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -53,6 +53,39 @@ async function handleAPI(request, env) {
       const userId = path.split('/')[3];
       const partnerId = path.split('/')[4];
       response = await getMessages(userId, partnerId, env.DB);
+    }
+    // Admin routes
+    else if (path === '/api/admin/login' && method === 'POST') {
+      response = await adminLogin(request);
+    } else if (path === '/api/admin/users' && method === 'GET') {
+      response = await adminGetAllUsers(env.DB);
+    } else if (path.startsWith('/api/admin/users/') && path.endsWith('/block') && method === 'POST') {
+      const userId = path.split('/')[4];
+      response = await adminBlockUser(request, userId, env.DB);
+    } else if (path.startsWith('/api/admin/users/') && method === 'DELETE') {
+      const userId = path.split('/')[4];
+      response = await adminDeleteUser(userId, env.DB);
+    } else if (path.startsWith('/api/admin/users/') && method === 'GET') {
+      const userId = path.split('/')[4];
+      response = await adminGetUserDetails(userId, env.DB);
+    } else if (path === '/api/admin/analytics' && method === 'GET') {
+      response = await adminGetAnalytics(env.DB);
+    } else if (path === '/api/admin/matches' && method === 'GET') {
+      response = await adminGetAllMatches(env.DB);
+    } else if (path === '/api/admin/messages' && method === 'GET') {
+      response = await adminGetAllMessages(env.DB);
+    } else if (path.startsWith('/api/admin/messages/') && method === 'GET') {
+      const parts = path.split('/');
+      const userId1 = parts[4];
+      const userId2 = parts[5];
+      response = await getMessages(userId1, userId2, env.DB);
+    } else if (path === '/api/admin/reports' && method === 'GET') {
+      response = await adminGetReports(env.DB);
+    } else if (path.startsWith('/api/admin/reports/') && method === 'PUT') {
+      const reportId = path.split('/')[4];
+      response = await adminUpdateReport(request, reportId, env.DB);
+    } else if (path === '/api/admin/swipes' && method === 'GET') {
+      response = await adminGetAllSwipes(env.DB);
     } else {
       response = { error: 'Not found' };
     }
@@ -238,6 +271,168 @@ async function getMessages(userId, partnerId, DB) {
     ORDER BY createdAt ASC
   `).bind(userId, partnerId, partnerId, userId).all();
 
+  return result.results;
+}
+
+// ========== ADMIN FUNCTIONS ==========
+
+// Admin login (simple authentication - in production use JWT)
+async function adminLogin(request) {
+  const { username, password } = await request.json();
+
+  // Simple admin check (in production, store hashed passwords in DB)
+  if (username === 'admin' && password === 'admin123') {
+    return {
+      success: true,
+      admin: {
+        id: 1,
+        username: 'admin',
+        role: 'administrator'
+      }
+    };
+  }
+
+  throw new Error('Invalid admin credentials');
+}
+
+// Get all users for admin
+async function adminGetAllUsers(DB) {
+  const result = await DB.prepare('SELECT * FROM users ORDER BY createdAt DESC').all();
+
+  const users = result.results.map(user => ({
+    ...user,
+    interests: user.interests ? JSON.parse(user.interests) : []
+  }));
+
+  return users;
+}
+
+// Get user details
+async function adminGetUserDetails(userId, DB) {
+  const user = await DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first();
+
+  if (user && user.interests) {
+    user.interests = JSON.parse(user.interests);
+  }
+
+  return user;
+}
+
+// Block/Unblock user
+async function adminBlockUser(request, userId, DB) {
+  const { blocked } = await request.json();
+
+  await DB.prepare(`
+    UPDATE users SET blocked = ? WHERE id = ?
+  `).bind(blocked ? 1 : 0, userId).run();
+
+  return { success: true, message: `User ${blocked ? 'blocked' : 'unblocked'} successfully` };
+}
+
+// Delete user
+async function adminDeleteUser(userId, DB) {
+  // Delete user's swipes
+  await DB.prepare('DELETE FROM swipes WHERE userId = ? OR targetUserId = ?').bind(userId, userId).run();
+
+  // Delete user's matches
+  await DB.prepare('DELETE FROM matches WHERE user1Id = ? OR user2Id = ?').bind(userId, userId).run();
+
+  // Delete user's messages
+  await DB.prepare('DELETE FROM messages WHERE senderId = ? OR recipientId = ?').bind(userId, userId).run();
+
+  // Delete user
+  await DB.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
+
+  return { success: true, message: 'User deleted successfully' };
+}
+
+// Get analytics
+async function adminGetAnalytics(DB) {
+  const [totalUsers, totalMatches, totalMessages, totalSwipes] = await Promise.all([
+    DB.prepare('SELECT COUNT(*) as count FROM users').first(),
+    DB.prepare('SELECT COUNT(*) as count FROM matches').first(),
+    DB.prepare('SELECT COUNT(*) as count FROM messages').first(),
+    DB.prepare('SELECT COUNT(*) as count FROM swipes').first(),
+  ]);
+
+  const [maleUsers, femaleUsers, blockedUsers] = await Promise.all([
+    DB.prepare("SELECT COUNT(*) as count FROM users WHERE gender = 'Male'").first(),
+    DB.prepare("SELECT COUNT(*) as count FROM users WHERE gender = 'Female'").first(),
+    DB.prepare('SELECT COUNT(*) as count FROM users WHERE blocked = 1').first(),
+  ]);
+
+  // Get recent activity (last 7 days)
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const [newThisWeek, matchesThisWeek] = await Promise.all([
+    DB.prepare('SELECT COUNT(*) as count FROM users WHERE createdAt >= ?').bind(weekAgo).first(),
+    DB.prepare('SELECT COUNT(*) as count FROM matches WHERE createdAt >= ?').bind(weekAgo).first(),
+  ]);
+
+  // Get today's activity
+  const today = new Date().toISOString().split('T')[0];
+  const activeToday = await DB.prepare('SELECT COUNT(*) as count FROM users WHERE createdAt >= ?').bind(today).first();
+
+  return {
+    totalUsers: totalUsers.count,
+    totalMatches: totalMatches.count,
+    totalMessages: totalMessages.count,
+    totalSwipes: totalSwipes.count,
+    maleUsers: maleUsers.count,
+    femaleUsers: femaleUsers.count,
+    blockedUsers: blockedUsers.count,
+    newThisWeek: newThisWeek.count,
+    matchesThisWeek: matchesThisWeek.count,
+    activeToday: activeToday.count,
+  };
+}
+
+// Get all matches
+async function adminGetAllMatches(DB) {
+  const result = await DB.prepare('SELECT * FROM matches ORDER BY createdAt DESC').all();
+  return result.results;
+}
+
+// Get all messages
+async function adminGetAllMessages(DB) {
+  const result = await DB.prepare('SELECT * FROM messages ORDER BY createdAt DESC').all();
+  return result.results;
+}
+
+// Get all reports
+async function adminGetReports(DB) {
+  // First create reports table if it doesn't exist
+  await DB.prepare(`
+    CREATE TABLE IF NOT EXISTS reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      reporterId INTEGER NOT NULL,
+      reportedUserId INTEGER NOT NULL,
+      reason TEXT NOT NULL,
+      description TEXT,
+      status TEXT DEFAULT 'pending',
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (reporterId) REFERENCES users(id),
+      FOREIGN KEY (reportedUserId) REFERENCES users(id)
+    )
+  `).run();
+
+  const result = await DB.prepare('SELECT * FROM reports ORDER BY createdAt DESC').all();
+  return result.results;
+}
+
+// Update report status
+async function adminUpdateReport(request, reportId, DB) {
+  const { status } = await request.json();
+
+  await DB.prepare(`
+    UPDATE reports SET status = ? WHERE id = ?
+  `).bind(status, reportId).run();
+
+  return { success: true, message: 'Report updated successfully' };
+}
+
+// Get all swipes
+async function adminGetAllSwipes(DB) {
+  const result = await DB.prepare('SELECT * FROM swipes ORDER BY createdAt DESC LIMIT 1000').all();
   return result.results;
 }
 
