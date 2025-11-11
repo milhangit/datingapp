@@ -1,125 +1,69 @@
-import React, { useState, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useUser } from '../context/UserContext';
+import api from '../services/api';
 import './TinderCards.css';
 
 const TinderCards = forwardRef((props, ref) => {
     const { currentUser, calculateMatchPercentage, handleSwipeRight } = useUser();
 
-    const [people] = useState([
-        {
-            id: 1,
-            name: 'Sanjana Fernando',
-            age: 26,
-            religion: 'Buddhist',
-            education: "Bachelor's",
-            occupation: 'Teacher',
-            city: 'Colombo',
-            state: 'Western',
-            diet: 'Vegetarian',
-            interests: ['Reading', 'Yoga', 'Travel', 'Music'],
-            url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600'
-        },
-        {
-            id: 2,
-            name: 'Nimal Perera',
-            age: 29,
-            religion: 'Buddhist',
-            education: "Master's",
-            occupation: 'Software Engineer',
-            city: 'Kandy',
-            state: 'Central',
-            diet: 'Non-Vegetarian',
-            interests: ['Sports', 'Gaming', 'Travel', 'Photography'],
-            url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600'
-        },
-        {
-            id: 3,
-            name: 'Kavitha Silva',
-            age: 25,
-            religion: 'Hindu',
-            education: "Bachelor's",
-            occupation: 'Doctor',
-            city: 'Colombo',
-            state: 'Western',
-            diet: 'Vegetarian',
-            interests: ['Dancing', 'Music', 'Cooking', 'Reading'],
-            url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=600'
-        },
-        {
-            id: 4,
-            name: 'Roshan De Silva',
-            age: 31,
-            religion: 'Christian',
-            education: "Master's",
-            occupation: 'Engineer',
-            city: 'Galle',
-            state: 'Southern',
-            diet: 'Non-Vegetarian',
-            interests: ['Sports', 'Movies', 'Fitness', 'Travel'],
-            url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600'
-        },
-        {
-            id: 5,
-            name: 'Amaya Jayawardena',
-            age: 27,
-            religion: 'Buddhist',
-            education: "Bachelor's",
-            occupation: 'Accountant',
-            city: 'Colombo',
-            state: 'Western',
-            diet: 'Vegetarian',
-            interests: ['Photography', 'Art', 'Travel', 'Yoga'],
-            url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600'
-        },
-        {
-            id: 6,
-            name: 'Kasun Rajapaksa',
-            age: 30,
-            religion: 'Buddhist',
-            education: "Master's",
-            occupation: 'Business',
-            city: 'Colombo',
-            state: 'Western',
-            diet: 'Non-Vegetarian',
-            interests: ['Fitness', 'Business', 'Travel', 'Movies'],
-            url: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600'
-        },
-        {
-            id: 7,
-            name: 'Dilini Wijesinghe',
-            age: 24,
-            religion: 'Christian',
-            education: "Bachelor's",
-            occupation: 'Nurse',
-            city: 'Negombo',
-            state: 'Western',
-            diet: 'Non-Vegetarian',
-            interests: ['Music', 'Cooking', 'Dancing', 'Reading'],
-            url: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=600'
-        },
-        {
-            id: 8,
-            name: 'Ashan Fernando',
-            age: 28,
-            religion: 'Muslim',
-            education: "Master's",
-            occupation: 'Lawyer',
-            city: 'Colombo',
-            state: 'Western',
-            diet: 'Non-Vegetarian',
-            interests: ['Reading', 'Sports', 'Travel', 'Photography'],
-            url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=600'
-        }
-    ]);
-
-    const [currentIndex, setCurrentIndex] = useState(people.length - 1);
+    const [people, setPeople] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [currentIndex, setCurrentIndex] = useState(-1);
     const [swipedCards, setSwipedCards] = useState([]);
 
-    const swipe = (direction) => {
+    // Fetch users from database
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+
+                const userId = currentUser?.id || null;
+                const users = await api.getUsers(userId);
+
+                // Parse interests if stored as JSON string
+                const parsedUsers = users.map(user => ({
+                    ...user,
+                    interests: typeof user.interests === 'string'
+                        ? JSON.parse(user.interests)
+                        : user.interests,
+                    url: user.photo || 'https://via.placeholder.com/600'
+                }));
+
+                setPeople(parsedUsers);
+                setCurrentIndex(parsedUsers.length - 1);
+            } catch (err) {
+                console.error('Error fetching users:', err);
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchUsers();
+    }, [currentUser]);
+
+    const swipe = async (direction) => {
         console.log('Swiping ' + direction + ' on index: ' + currentIndex);
 
         if (currentIndex >= 0 && currentIndex < people.length) {
             const currentPerson = people[currentIndex];
+
+            // Save swipe to database
+            if (currentUser) {
+                try {
+                    const result = await api.swipe(currentUser.id, currentPerson.id, direction);
+
+                    // Check if it's a match
+                    if (result.match) {
+                        console.log('It\'s a match!', result);
+                        // You can add a match notification here
+                    }
+                } catch (err) {
+                    console.error('Error recording swipe:', err);
+                }
+            }
 
             // Track right swipes for potential matches
             if (direction === 'right') {
@@ -161,6 +105,31 @@ const TinderCards = forwardRef((props, ref) => {
         return '';
     };
 
+    if (loading) {
+        return (
+            <div className="tinderCards">
+                <div className="tinderCards__cardContainer">
+                    <div className="no-more-cards">
+                        <h3>Loading profiles...</h3>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="tinderCards">
+                <div className="tinderCards__cardContainer">
+                    <div className="no-more-cards">
+                        <h3>Error loading profiles</h3>
+                        <p>{error}</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="tinderCards">
             <div className="tinderCards__cardContainer">
@@ -193,7 +162,13 @@ const TinderCards = forwardRef((props, ref) => {
                         </div>
                     )
                 ))}
-                {currentIndex < 0 && (
+                {currentIndex < 0 && people.length === 0 && (
+                    <div className="no-more-cards">
+                        <h3>No profiles available</h3>
+                        <p>Check back later for new matches</p>
+                    </div>
+                )}
+                {currentIndex < 0 && people.length > 0 && (
                     <div className="no-more-cards">
                         <h3>No more profiles!</h3>
                         <p>Check back later for new matches</p>

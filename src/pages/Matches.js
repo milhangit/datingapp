@@ -1,45 +1,52 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 import './Matches.css';
 
 function Matches() {
-    const { matches, currentUser } = useUser();
+    const { currentUser, calculateMatchPercentage } = useUser();
     const navigate = useNavigate();
 
-    // Sample matched users data (in real app, this would come from backend)
-    const matchedUsers = [
-        {
-            id: 1,
-            name: 'Sanjana Fernando',
-            age: 26,
-            religion: 'Buddhist',
-            occupation: 'Teacher',
-            city: 'Colombo',
-            url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=600',
-            matchPercentage: 85
-        },
-        {
-            id: 3,
-            name: 'Kavitha Silva',
-            age: 25,
-            religion: 'Hindu',
-            occupation: 'Doctor',
-            city: 'Colombo',
-            url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=600',
-            matchPercentage: 78
-        },
-        {
-            id: 5,
-            name: 'Amaya Jayawardena',
-            age: 27,
-            religion: 'Buddhist',
-            occupation: 'Accountant',
-            city: 'Colombo',
-            url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600',
-            matchPercentage: 92
-        }
-    ];
+    const [matchedUsers, setMatchedUsers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    // Fetch matches from database
+    useEffect(() => {
+        const fetchMatches = async () => {
+            if (!currentUser) {
+                setLoading(false);
+                return;
+            }
+
+            try {
+                setLoading(true);
+                setError(null);
+
+                const matches = await api.getMatches(currentUser.id);
+
+                // Parse interests and add photo URL
+                const parsedMatches = matches.map(user => ({
+                    ...user,
+                    interests: typeof user.interests === 'string'
+                        ? JSON.parse(user.interests)
+                        : user.interests,
+                    url: user.photo || 'https://via.placeholder.com/600',
+                    matchPercentage: calculateMatchPercentage(user)
+                }));
+
+                setMatchedUsers(parsedMatches);
+            } catch (err) {
+                console.error('Error fetching matches:', err);
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchMatches();
+    }, [currentUser, calculateMatchPercentage]);
 
     const handleChatClick = (userId) => {
         navigate(`/chat/${userId}`);
@@ -53,6 +60,27 @@ function Matches() {
                     <button onClick={() => navigate('/register')} className="btn btn__primary">
                         Create Profile
                     </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (loading) {
+        return (
+            <div className="matches">
+                <div className="matches__empty">
+                    <h2>Loading matches...</h2>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="matches">
+                <div className="matches__empty">
+                    <h2>Error loading matches</h2>
+                    <p>{error}</p>
                 </div>
             </div>
         );

@@ -44,6 +44,9 @@ async function handleAPI(request, env) {
     } else if (path.startsWith('/api/matches/') && method === 'GET') {
       const userId = path.split('/')[3];
       response = await getMatches(userId, env.DB);
+    } else if (path.startsWith('/api/hearts/') && method === 'GET') {
+      const userId = path.split('/')[3];
+      response = await getHearts(userId, env.DB);
     } else if (path === '/api/messages' && method === 'POST') {
       response = await sendMessage(request, env.DB);
     } else if (path.startsWith('/api/messages/') && method === 'GET') {
@@ -133,7 +136,7 @@ async function getUsers(DB) {
     interests: user.interests ? JSON.parse(user.interests) : []
   }));
 
-  return { success: true, users };
+  return users;
 }
 
 // Record a swipe
@@ -160,11 +163,11 @@ async function recordSwipe(request, DB) {
         VALUES (?, ?)
       `).bind(Math.min(userId, targetUserId), Math.max(userId, targetUserId)).run();
 
-      return { success: true, matched: true };
+      return { match: true };
     }
   }
 
-  return { success: true, matched: false };
+  return { match: false };
 }
 
 // Get matches for a user
@@ -180,19 +183,50 @@ async function getMatches(userId, DB) {
     interests: user.interests ? JSON.parse(user.interests) : []
   }));
 
-  return { success: true, matches };
+  return matches;
+}
+
+// Get hearts/likes received by a user
+async function getHearts(userId, DB) {
+  // Get count of right swipes (hearts) the user received
+  const countResult = await DB.prepare(`
+    SELECT COUNT(*) as count FROM swipes
+    WHERE targetUserId = ? AND direction = 'right'
+  `).bind(userId).first();
+
+  // Get users who swiped right on this user
+  const usersResult = await DB.prepare(`
+    SELECT u.* FROM users u
+    INNER JOIN swipes s ON u.id = s.userId
+    WHERE s.targetUserId = ? AND s.direction = 'right'
+  `).bind(userId).all();
+
+  const users = usersResult.results.map(user => ({
+    ...user,
+    interests: user.interests ? JSON.parse(user.interests) : []
+  }));
+
+  return {
+    count: countResult.count,
+    users: users
+  };
 }
 
 // Send a message
 async function sendMessage(request, DB) {
   const { senderId, recipientId, message } = await request.json();
 
-  await DB.prepare(`
+  const result = await DB.prepare(`
     INSERT INTO messages (senderId, recipientId, message)
     VALUES (?, ?, ?)
   `).bind(senderId, recipientId, message).run();
 
-  return { success: true };
+  // Get the created message
+  const createdMessage = await DB.prepare(`
+    SELECT * FROM messages WHERE id = ?
+  `).bind(result.meta.last_row_id).first();
+
+  return createdMessage;
 }
 
 // Get messages between two users
@@ -204,7 +238,7 @@ async function getMessages(userId, partnerId, DB) {
     ORDER BY createdAt ASC
   `).bind(userId, partnerId, partnerId, userId).all();
 
-  return { success: true, messages: result.results };
+  return result.results;
 }
 
 // Serve static assets
