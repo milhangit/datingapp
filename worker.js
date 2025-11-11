@@ -48,7 +48,7 @@ async function handleAPI(request, env) {
       const userId = path.split('/')[3];
       response = await getHearts(userId, env.DB);
     } else if (path === '/api/messages' && method === 'POST') {
-      response = await sendMessage(request, env.DB);
+      response = await sendMessage(request, env.DB, env);
     } else if (path.startsWith('/api/messages/') && method === 'GET') {
       const userId = path.split('/')[3];
       const partnerId = path.split('/')[4];
@@ -270,10 +270,63 @@ async function getHearts(userId, DB) {
   };
 }
 
+// Generate AI response using OpenAI
+async function generateAIResponse(profile, conversationHistory, userMessage, OPENAI_API_KEY) {
+  // Build personality prompt based on profile
+  const interests = profile.interests ? JSON.parse(profile.interests) : [];
+  const personalityPrompt = `You are ${profile.name}, a ${profile.age}-year-old ${profile.gender} from ${profile.city}.
+Your religion is ${profile.religion}. You work as a ${profile.occupation} and studied ${profile.education}.
+${profile.bio ? `About you: ${profile.bio}` : ''}
+${interests.length > 0 ? `Your interests include: ${interests.join(', ')}.` : ''}
+
+You are chatting on a dating/matrimonial app. Be friendly, engaging, and authentic. Show genuine interest in getting to know the person.
+Keep responses concise (1-3 sentences), natural, and conversational. Ask follow-up questions occasionally.
+Reflect your personality based on your background, interests, and bio. Flirt subtly and appropriately.`;
+
+  // Build conversation history for context
+  const messages = [
+    { role: 'system', content: personalityPrompt },
+    ...conversationHistory.map(msg => ({
+      role: msg.senderId === profile.id ? 'assistant' : 'user',
+      content: msg.message
+    })),
+    { role: 'user', content: userMessage }
+  ];
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-3.5-turbo',
+        messages: messages,
+        max_tokens: 150,
+        temperature: 0.9
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      console.error('OpenAI API error:', data.error);
+      return null;
+    }
+
+    return data.choices[0].message.content.trim();
+  } catch (error) {
+    console.error('Error generating AI response:', error);
+    return null;
+  }
+}
+
 // Send a message
-async function sendMessage(request, DB) {
+async function sendMessage(request, DB, env) {
   const { senderId, recipientId, message } = await request.json();
 
+  // Save the user's message
   const result = await DB.prepare(`
     INSERT INTO messages (senderId, recipientId, message)
     VALUES (?, ?, ?)
@@ -283,6 +336,38 @@ async function sendMessage(request, DB) {
   const createdMessage = await DB.prepare(`
     SELECT * FROM messages WHERE id = ?
   `).bind(result.meta.last_row_id).first();
+
+  // Check if recipient is an AI profile
+  const recipient = await DB.prepare(`
+    SELECT * FROM users WHERE id = ?
+  `).bind(recipientId).first();
+
+  if (recipient && recipient.isAI === 1 && env.OPENAI_API_KEY) {
+    // Get conversation history (last 10 messages for context)
+    const conversationHistory = await DB.prepare(`
+      SELECT * FROM messages
+      WHERE (senderId = ? AND recipientId = ?)
+         OR (senderId = ? AND recipientId = ?)
+      ORDER BY createdAt DESC
+      LIMIT 10
+    `).bind(senderId, recipientId, recipientId, senderId).all();
+
+    // Reverse to get chronological order
+    const history = conversationHistory.results.reverse();
+
+    // Generate AI response
+    const aiResponse = await generateAIResponse(recipient, history, message, env.OPENAI_API_KEY);
+
+    if (aiResponse) {
+      // Save AI's response after a small delay (more natural)
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      await DB.prepare(`
+        INSERT INTO messages (senderId, recipientId, message)
+        VALUES (?, ?, ?)
+      `).bind(recipientId, senderId, aiResponse).run();
+    }
+  }
 
   return createdMessage;
 }

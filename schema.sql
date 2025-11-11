@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
     bio TEXT,
     photo TEXT,
     blocked INTEGER DEFAULT 0,
+    isAI INTEGER DEFAULT 0, -- 1 for AI-powered profiles, 0 for real users
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

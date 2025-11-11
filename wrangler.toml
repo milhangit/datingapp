@@ -11,6 +11,8 @@ binding = "DB"
 database_name = "datingapp-db"
 database_id = "2c2287be-77f5-434b-9ab4-ab9c5c6a73e7"
 
+# OpenAI API Key is stored as a secret (use: wrangler secret put OPENAI_API_KEY)
+
 # Optionally, set a custom domain
 # routes = [
 #   { pattern = "datingapp.com", custom_domain = true }
