@@ -1,0 +1,28 @@
+{
+  "name": "dating-app-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "client",
+    "functions",
+    "tina"
+  ],
+  "scripts": {
+    "dev": "wrangler pages dev client/dist --d1 DB=dating-app-db",
+    "deploy": "wrangler pages deploy client/dist",
+    "db:migrate": "wrangler d1 migrations apply dating-app-db"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251128.0",
+    "autoprefixer": "^10.4.22",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.17",
+    "wrangler": "^3.0.0"
+  },
+  "dependencies": {
+    "@tinacms/cli": "^1.12.5",
+    "cookie": "^1.1.1",
+    "jose": "^6.1.2",
+    "tinacms": "^2.10.0"
+  }
+}

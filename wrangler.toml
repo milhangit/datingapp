@@ -1,0 +1,20 @@
+name = "dating-app"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Pages Configuration
+pages_build_output_dir = "client/dist"
+
+# D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "dating-app-db"
+database_id = "dating-app-db-id" # Placeholder, user will need to update
+
+# Cloudflare Images (Optional, for future use)
+# [[r2_buckets]]
+# binding = "IMAGES"
+# bucket_name = "dating-app-images"
+
+[vars]
+ENVIRONMENT = "production"
