@@ -10,8 +10,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
         const normalizedPhone = phoneNumber.replace(/\D/g, '');
 
-        // Verify OTP (Bypass if Master OTP '123456' is used)
-        if (otp !== '123456') {
+        // Verify OTP
+        // Allow Master OTP '123456' ONLY for dummy number '+15550000000' (normalized: '15550000000')
+        const isDummyUser = normalizedPhone === '15550000000' && otp === '123456';
+
+        if (!isDummyUser) {
             const stored = await env.DB.prepare(
                 'SELECT * FROM VerificationCodes WHERE phone_number = ? AND code = ? AND expires_at > ? ORDER BY created_at DESC LIMIT 1'
             ).bind(normalizedPhone, otp, new Date().toISOString()).first();
