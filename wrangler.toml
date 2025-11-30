@@ -8,8 +8,8 @@ pages_build_output_dir = "client/dist"
 # D1 Database Binding
 [[d1_databases]]
 binding = "DB"
-database_name = "dating-app-db"
-database_id = "dating-app-db-id" # Placeholder, user will need to update
+database_name = "dating-app-db-prod"
+database_id = "5d0412c3-d95c-4624-bb12-b666a4d9bb56"
 
 # Cloudflare Images (Optional, for future use)
 # [[r2_buckets]]
