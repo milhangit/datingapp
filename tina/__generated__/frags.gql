@@ -1,0 +1,12 @@
+fragment OnboardingParts on Onboarding {
+  __typename
+  question
+  type
+  options
+}
+
+fragment LegalParts on Legal {
+  __typename
+  title
+  body
+}
