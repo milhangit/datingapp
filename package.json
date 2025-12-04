@@ -20,9 +20,7 @@
     "wrangler": "^3.0.0"
   },
   "dependencies": {
-    "@tinacms/cli": "^1.12.5",
     "cookie": "^1.1.1",
-    "jose": "^6.1.2",
-    "tinacms": "^2.10.0"
+    "jose": "^6.1.2"
   }
 }

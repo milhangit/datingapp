@@ -53,3 +53,9 @@ export const createSessionCookie = async (userId: number, env: Env) => {
         maxAge: 60 * 60 * 24 * 30, // 30 days
     });
 };
+
+export const verifyToken = async (token: string, secretKey: string) => {
+    const secret = new TextEncoder().encode(secretKey || 'dev-secret-key');
+    const { payload } = await jwtVerify(token, secret);
+    return payload;
+};
